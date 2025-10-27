@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Package Exports**: Added snake_case export path for spacing_helper module to support generated code imports
+  - Added `./v4/shared/spacing_helper` export alongside existing `./v4/shared/spacing-helper` export
+  - Fixes Vite import resolution error: "Missing './v4/shared/spacing_helper' specifier in 'tailwind-resolver' package"
+  - Generated runtime code can now import using snake_case path while public API maintains kebab-case convention
+  - Maintains backward compatibility and follows Node.js package dual-export patterns
+
 ## [0.3.0] - 2025-10-23
 
 ### Added

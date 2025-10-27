@@ -58,6 +58,11 @@
       "types": "./dist/v4/shared/spacing_helper.d.ts",
       "import": "./dist/v4/shared/spacing_helper.mjs",
       "require": "./dist/v4/shared/spacing_helper.js"
+    },
+    "./v4/shared/spacing_helper": {
+      "types": "./dist/v4/shared/spacing_helper.d.ts",
+      "import": "./dist/v4/shared/spacing_helper.mjs",
+      "require": "./dist/v4/shared/spacing_helper.js"
     }
   },
   "files": [
