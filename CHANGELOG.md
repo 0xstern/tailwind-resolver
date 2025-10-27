@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2025-10-27
+
 ### Fixed
 
 - **Package Exports**: Added snake_case export path for spacing_helper module to support generated code imports
