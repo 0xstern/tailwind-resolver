@@ -3,18 +3,31 @@
  */
 
 /**
+ * Represents a color value that can be either a string or nested color structure
+ * Supports arbitrary nesting depth for complex color systems like Material Design 3
+ * Examples:
+ * - Simple: `'#ff0000'`
+ * - 2-level: `{ 50: '#...', 100: '#...', 500: '#...' }`
+ * - 3-level: `{ on: { surface: '#...' } }`
+ * - 4-level: `{ primary: { fixed: { variant: '#...' } } }`
+ */
+export type ColorValue = string | { [key: string]: ColorValue };
+
+/**
  * Represents a color scale with variants (can be numeric or string keys)
  * Examples:
  * - { 50: '...', 100: '...', 500: '...' }
  * - { '500-hover': '...', '600-active': '...' }
+ * @deprecated Use ColorValue for better support of nested structures
  */
 export type ColorScale = Record<string | number, string>;
 
 /**
  * Represents all color definitions in the theme
+ * Supports arbitrary nesting depth for complex color systems
  */
 export interface ThemeColors {
-  [key: string]: string | ColorScale;
+  [key: string]: ColorValue;
 }
 
 /**

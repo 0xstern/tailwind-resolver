@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Deep Color Nesting in Type Generation**: Fixed bug where deeply nested color structures (3+ levels) were stringified as `'[object Object]'` instead of properly typed nested objects
+  - Before: `inverse.on.surface` → `inverse: { on: '[object Object]' }`
+  - After: `inverse.on.surface` → `inverse: { on: { surface: '#f2f2f2' } }`
+  - Added recursive `generateColorValue()` helper function to handle arbitrary nesting depth
+  - Now supports Material Design 3 color tokens with 4+ levels (e.g., `on.primary.fixed.variant`)
+  - Updated `ThemeColors` type to use new `ColorValue` recursive type instead of flat `ColorScale`
+  - Ensures TypeScript autocomplete and type safety for all nesting levels
+
+### Added
+
+- **Comprehensive Deep Nesting Tests**: Added 46 test cases covering deeply nested color structures
+  - Tests for 3-level, 4-level, 5-level, and 6-level color nesting
+  - Real-world Material Design 3 color system test coverage
+  - Edge cases: empty objects, special characters, kebab-case keys, mixed nesting depths
+  - Runtime file generation validation with JSON parsing verification
+  - Type safety verification ensuring balanced braces and valid TypeScript syntax
+  - Test file: `test/v4/shared/type_generator_deep_nesting_test.ts`
+
 ## [0.3.1] - 2025-10-27
 
 ### Fixed

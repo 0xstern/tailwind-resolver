@@ -317,6 +317,37 @@ function generateMixedRecordType(obj: Record<string, string | number>): string {
   return `{\n  ${props}\n}`;
 }
 
+/**
+ * Recursively generates TypeScript type for a color value (string or nested object)
+ * Handles arbitrary nesting depth for complex color structures
+ *
+ * @param value - Color value (string or nested object)
+ * @returns TypeScript type string
+ */
+function generateColorValue(value: string | Record<string, unknown>): string {
+  if (typeof value === 'string') {
+    return `'${escapeStringLiteral(value)}'`;
+  }
+
+  // Handle nested object recursively
+  const entries = Object.entries(value);
+  if (entries.length === 0) {
+    return '{}';
+  }
+
+  const props = entries
+    .map(([key, nestedValue]) => {
+      const safeKey = isValidIdentifier(key) ? key : `'${key}'`;
+      const typeValue = generateColorValue(
+        nestedValue as string | Record<string, unknown>,
+      );
+      return `${safeKey}: ${typeValue}`;
+    })
+    .join('; ');
+
+  return `{ ${props} }`;
+}
+
 function generateColorTypes(colors: Theme['colors']): string {
   const entries = Object.entries(colors);
 
@@ -327,22 +358,10 @@ function generateColorTypes(colors: Theme['colors']): string {
   const colorProps = entries
     .map(([key, value]) => {
       const safeKey = isValidIdentifier(key) ? key : `'${key}'`;
-
-      if (typeof value === 'string') {
-        return `${safeKey}: '${value}'`;
-      }
-
-      // Color scale object
-      const scaleEntries = Object.entries(value)
-        .map(([variant, color]) => {
-          const safeVariant = isValidIdentifier(variant)
-            ? variant
-            : `'${variant}'`;
-          return `${safeVariant}: '${color}'`;
-        })
-        .join('; ');
-
-      return `${safeKey}: { ${scaleEntries} }`;
+      const typeValue = generateColorValue(
+        value as string | Record<string, unknown>,
+      );
+      return `${safeKey}: ${typeValue}`;
     })
     .join(';\n  ');
 
