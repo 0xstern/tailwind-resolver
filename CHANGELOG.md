@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **DEFAULT Key Logic for Variant Themes**: Fixed bug where scalar variables would overwrite nested structures when processed after nested properties
+  - Before: `--color-surface: #131314` (processed after `--color-surface-bright`) → `surface: '#131314'` (nested properties lost)
+  - After: `--color-surface: #131314` (processed after `--color-surface-bright`) → `surface: { DEFAULT: '#131314', bright: '#37393b', ... }`
+  - Modified `processNestedVariable()` in `builder.ts` to check for existing nested objects before setting flat values
+  - When a nested object exists, scalar values are now correctly moved to the `DEFAULT` key
+  - Preserves existing nested structure across all theme namespaces (colors, shadows, spacing, etc.)
+  - Ensures consistent DEFAULT key behavior regardless of CSS variable declaration order
+
 ## [0.3.2] - 2025-10-28
 
 ### Fixed

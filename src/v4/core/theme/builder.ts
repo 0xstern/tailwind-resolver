@@ -1148,7 +1148,21 @@ function processNestedVariable(
     // It's a flat value (e.g., "white", "black", or custom like "primary")
     // Convert to camelCase for consistency
     const camelKey: string = kebabToCamelCase(key);
-    target[camelKey] = value;
+
+    // Check if a nested object already exists at this key
+    const existing = target[camelKey];
+    if (
+      existing !== undefined &&
+      typeof existing === 'object' &&
+      existing !== null &&
+      !Array.isArray(existing)
+    ) {
+      // Nested object exists - move scalar to DEFAULT to preserve nested structure
+      (existing as Record<string, unknown>).DEFAULT = value;
+    } else {
+      // No nested object - set normally
+      target[camelKey] = value;
+    }
   }
 }
 

@@ -142,7 +142,11 @@ describe('Theme Variants', () => {
     if (result.variants.dark === undefined) {
       throw new Error('Dark variant should be defined');
     }
-    expect(result.variants.dark.colors.white).toBe('#1f2937');
+    // White has nested structure (white.DEFAULT from dark, white.main from @theme)
+    expect(result.variants.dark.colors.white).toMatchObject({
+      DEFAULT: '#1f2937',
+      main: '#fefefe',
+    });
     expect(result.variants.dark.colors.black).toBe('#f9fafb');
     expect(result.variants.dark.colors.errorPrimary).toBe('#f87171');
   });
