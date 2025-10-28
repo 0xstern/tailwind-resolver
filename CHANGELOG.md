@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2025-10-28
+
 - **DEFAULT Key Logic for Variant Themes**: Fixed bug where scalar variables would overwrite nested structures when processed after nested properties
   - Before: `--color-surface: #131314` (processed after `--color-surface-bright`) → `surface: '#131314'` (nested properties lost)
   - After: `--color-surface: #131314` (processed after `--color-surface-bright`) → `surface: { DEFAULT: '#131314', bright: '#37393b', ... }`
