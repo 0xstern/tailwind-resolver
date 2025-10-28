@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2025-10-28
+
 ### Fixed
 
 - **Deep Color Nesting in Type Generation**: Fixed bug where deeply nested color structures (3+ levels) were stringified as `'[object Object]'` instead of properly typed nested objects
