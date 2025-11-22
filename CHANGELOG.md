@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2025-11-22
+
+### Fixed
+
+- **Vite Peer Dependency**: Lowered vite peer dependency from `>=7.0.0` to `>=5.0.0`
+  - Plugin uses stable Vite APIs (configResolved, buildStart, handleHotUpdate) compatible with v5+
+  - Allows usage with projects on Vite 5.x (e.g., `vite: "5.4.8"`)
+  - Fixes compatibility issue where package.json required v7 but README documented v5+ support
+
 ## [0.3.3] - 2025-10-28
 
 - **DEFAULT Key Logic for Variant Themes**: Fixed bug where scalar variables would overwrite nested structures when processed after nested properties
