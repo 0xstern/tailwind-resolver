@@ -1,3 +1,6 @@
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import js from '@eslint/js';
 import prettierConfig from 'eslint-config-prettier';
 import importPlugin from 'eslint-plugin-import';
@@ -5,6 +8,8 @@ import jsdocPlugin from 'eslint-plugin-jsdoc';
 import nPlugin from 'eslint-plugin-n';
 import globals from 'globals';
 import tsEslint from 'typescript-eslint';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default [
   // --- Global Ignores ---
@@ -60,7 +65,7 @@ export default [
       parser: tsEslint.parser,
       parserOptions: {
         project: true,
-        tsconfigRootDir: import.meta.dirname,
+        tsconfigRootDir: __dirname,
       },
     },
     plugins: {

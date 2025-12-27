@@ -37,12 +37,192 @@ import { applyThemeOverrides, injectVariableOverrides } from './overrides';
 
 /**
  * Compiled regex patterns for performance (avoid recompilation on each call)
- * VAR_REFERENCE_REGEX_GLOBAL uses `g` flag for efficient iteration in loops
  */
-const VAR_REFERENCE_REGEX = /var\((--[\w-]+)\)/;
-const VAR_REFERENCE_REGEX_GLOBAL = /var\((--[\w-]+)\)/g;
 const CSS_FUNCTION_REGEX =
   /(?:calc|min|max|clamp|abs|sign|round|mod|rem|sin|cos|tan|asin|acos|atan|atan2|pow|sqrt|hypot|log|exp)\s*\(/;
+
+/**
+ * Regex to find var() functions in a string (for iteration)
+ * Matches the start of a var() to find positions for parsing
+ */
+const VAR_START_REGEX = /var\s*\(/g;
+
+/**
+ * Length of CSS variable prefix '--'
+ */
+const CSS_VAR_PREFIX_LENGTH = 2;
+
+/**
+ * Minimum length of a valid CSS variable name (e.g., '--x')
+ */
+const MIN_CSS_VAR_NAME_LENGTH = 3;
+
+/**
+ * Result of parsing a var() function
+ */
+interface ParsedVarFunction {
+  /** The CSS variable name (e.g., '--background') */
+  variableName: string;
+  /** The fallback value if provided (may contain nested var()) */
+  fallback: string | null;
+  /** The full matched var() expression */
+  fullMatch: string;
+  /** Start index in the original string */
+  startIndex: number;
+  /** End index in the original string (exclusive) */
+  endIndex: number;
+}
+
+/**
+ * Skips whitespace characters in a string starting from a given index
+ *
+ * @param value - The string to scan
+ * @param startIndex - Index to start scanning from
+ * @returns The index of the first non-whitespace character
+ */
+function skipWhitespace(value: string, startIndex: number): number {
+  let i = startIndex;
+  while (i < value.length && /\s/.test(value[i] ?? '')) {
+    i++;
+  }
+  return i;
+}
+
+/**
+ * Extracts a CSS variable name from a string starting at the given index
+ *
+ * @param value - The string to extract from
+ * @param startIndex - Index where the variable name starts (should be at '--')
+ * @returns Object with the variable name and end index, or null if invalid
+ */
+function extractCSSVariableName(
+  value: string,
+  startIndex: number,
+): { name: string; endIndex: number } | null {
+  // Must start with --
+  if (value.slice(startIndex, startIndex + CSS_VAR_PREFIX_LENGTH) !== '--') {
+    return null;
+  }
+
+  let i = startIndex;
+  while (i < value.length) {
+    const char = value[i];
+    if (char === undefined) break;
+
+    // Variable names can contain: letters, digits, hyphens, underscores
+    if (/[\w-]/.test(char)) {
+      i++;
+    } else {
+      break;
+    }
+  }
+
+  const name = value.slice(startIndex, i);
+  if (name.length < MIN_CSS_VAR_NAME_LENGTH) {
+    return null;
+  }
+
+  return { name, endIndex: i };
+}
+
+/**
+ * Extracts fallback value from a var() function, handling nested parentheses
+ *
+ * @param value - The string to extract from
+ * @param startIndex - Index where the fallback value starts (after comma)
+ * @returns Object with fallback value and end index, or null if unbalanced
+ */
+function extractFallbackValue(
+  value: string,
+  startIndex: number,
+): { fallback: string; endIndex: number } | null {
+  let i = startIndex;
+  let depth = 1;
+
+  while (i < value.length && depth > 0) {
+    const char = value[i];
+    if (char === '(') {
+      depth++;
+    } else if (char === ')') {
+      depth--;
+    }
+    if (depth > 0) {
+      i++;
+    }
+  }
+
+  if (depth !== 0) {
+    return null;
+  }
+
+  return {
+    fallback: value.slice(startIndex, i).trim(),
+    endIndex: i + 1, // +1 to skip closing paren
+  };
+}
+
+/**
+ * Parses a var() function at a given position, handling nested parentheses
+ *
+ * This function properly handles:
+ * - Simple var(): `var(--name)`
+ * - var() with fallback: `var(--name, fallback)`
+ * - Nested var(): `var(--name, var(--other))`
+ * - Deeply nested: `var(--name, var(--x, var(--y, #fff)))`
+ *
+ * @param value - The CSS value string
+ * @param startIndex - Index where 'var(' starts
+ * @returns Parsed var function result, or null if parsing fails
+ */
+function parseVarFunction(
+  value: string,
+  startIndex: number,
+): ParsedVarFunction | null {
+  // Find the opening parenthesis
+  const openParenIndex = value.indexOf('(', startIndex);
+  if (openParenIndex === -1) {
+    return null;
+  }
+
+  // Skip whitespace before variable name
+  let i = skipWhitespace(value, openParenIndex + 1);
+
+  // Extract variable name
+  const varNameResult = extractCSSVariableName(value, i);
+  if (varNameResult === null) {
+    return null;
+  }
+
+  const { name: variableName, endIndex: varNameEnd } = varNameResult;
+  i = skipWhitespace(value, varNameEnd);
+
+  let fallback: string | null = null;
+
+  // Check for comma (fallback) or closing paren
+  if (value[i] === ',') {
+    i = skipWhitespace(value, i + 1);
+
+    const fallbackResult = extractFallbackValue(value, i);
+    if (fallbackResult === null) {
+      return null;
+    }
+
+    fallback = fallbackResult.fallback;
+    i = fallbackResult.endIndex;
+  } else if (value[i] === ')') {
+    i++;
+  } else {
+    return null;
+  }
+
+  return {
+    variableName,
+    fallback,
+    fullMatch: value.slice(startIndex, i),
+    startIndex,
+    endIndex: i,
+  };
+}
 
 /**
  * Maximum iterations for resolving nested var() references in CSS functions
@@ -76,17 +256,37 @@ interface VariableReference {
 }
 
 /**
- * Extracts CSS variable name from var() function
+ * Finds the first var() function in a string
+ *
  * @param value - CSS value that may contain var()
- * @returns Variable name without -- prefix, or null if no var() found
+ * @returns Parsed var function, or null if none found
  *
  * @example
- * extractVarReference('var(--background)') // 'background'
+ * findFirstVarFunction('var(--background)') // { variableName: '--background', ... }
+ * findFirstVarFunction('oklch(1 0 0)') // null
+ */
+function findFirstVarFunction(value: string): ParsedVarFunction | null {
+  VAR_START_REGEX.lastIndex = 0;
+  const match = VAR_START_REGEX.exec(value);
+  if (match === null) {
+    return null;
+  }
+  return parseVarFunction(value, match.index);
+}
+
+/**
+ * Extracts CSS variable name from var() function (legacy helper)
+ *
+ * @param value - CSS value that may contain var()
+ * @returns Variable name including -- prefix, or null if no var() found
+ *
+ * @example
+ * extractVarReference('var(--background)') // '--background'
  * extractVarReference('oklch(1 0 0)') // null
  */
 function extractVarReference(value: string): string | null {
-  const match = value.match(VAR_REFERENCE_REGEX);
-  return match?.[1] ?? null;
+  const parsed = findFirstVarFunction(value);
+  return parsed?.variableName ?? null;
 }
 
 /**
@@ -121,11 +321,21 @@ function resolveVarReferences(
 
 /**
  * Resolves var() references within CSS functions like calc()
- * Uses global regex with exec() for better performance in hot path
+ *
+ * Handles fallback values: if a variable is not found, its fallback is used.
+ * Iterates until all var() references are resolved or max iterations reached.
+ *
  * @param value - CSS value containing functions
  * @param variablesMap - Map of variables for resolution
  * @param visited - Set of visited variables to prevent loops
  * @returns Resolved value with var() replaced
+ *
+ * @example
+ * // calc with simple var
+ * resolveCSSFunctionVars('calc(var(--x) + 10px)', map) // → 'calc(5px + 10px)'
+ *
+ * // calc with fallback
+ * resolveCSSFunctionVars('calc(var(--missing, 5px) + 10px)', map) // → 'calc(5px + 10px)'
  */
 function resolveCSSFunctionVars(
   value: string,
@@ -136,32 +346,56 @@ function resolveCSSFunctionVars(
   let iterations = 0;
 
   // Keep replacing until no more var() references or we hit iteration limit
-  // Use global regex with exec() for better performance
   while (iterations++ < MAX_VAR_RESOLUTION_ITERATIONS) {
-    // Reset lastIndex before each iteration to search from the start
-    VAR_REFERENCE_REGEX_GLOBAL.lastIndex = 0;
-    const varMatch = VAR_REFERENCE_REGEX_GLOBAL.exec(result);
-    if (varMatch === null) {
+    // Find the first var() in the current result
+    const parsed = findFirstVarFunction(result);
+    if (parsed === null) {
       break;
     }
 
-    const varRef = varMatch[1];
-    if (varRef === undefined || visited.has(varRef)) {
+    const { variableName, fallback, fullMatch } = parsed;
+
+    // Check for cycles - but don't break, try the fallback or skip this var
+    if (visited.has(variableName)) {
+      // If we have a fallback and hit a cycle, use the fallback
+      if (fallback !== null) {
+        const resolvedFallback = resolveVarReferences(
+          fallback,
+          variablesMap,
+          new Set(visited),
+        );
+        result = result.replace(fullMatch, resolvedFallback);
+        continue;
+      }
+      // No fallback and cyclic reference - can't resolve further
       break;
     }
 
-    const referencedValue = variablesMap.get(varRef);
-    if (referencedValue === undefined) {
+    // Try to resolve the primary variable
+    const referencedValue = variablesMap.get(variableName);
+
+    if (referencedValue !== undefined) {
+      // Variable found - resolve it
+      visited.add(variableName);
+      const resolvedRef = resolveVarReferences(
+        referencedValue,
+        variablesMap,
+        new Set(visited),
+      );
+      result = result.replace(fullMatch, resolvedRef);
+    } else if (fallback !== null) {
+      // Variable not found but we have a fallback - use it
+      const resolvedFallback = resolveVarReferences(
+        fallback,
+        variablesMap,
+        new Set(visited),
+      );
+      result = result.replace(fullMatch, resolvedFallback);
+    } else {
+      // Variable not found and no fallback - can't resolve this var
+      // Break to avoid infinite loop on unresolvable var()
       break;
     }
-
-    visited.add(varRef);
-    const resolvedRef = resolveVarReferences(
-      referencedValue,
-      variablesMap,
-      new Set(visited),
-    );
-    result = result.replace(`var(${varRef})`, resolvedRef);
   }
 
   return result;
@@ -169,28 +403,80 @@ function resolveCSSFunctionVars(
 
 /**
  * Resolves a simple var() reference without CSS functions
+ *
+ * Handles fallback values: if the primary variable is not found,
+ * the fallback value is used and recursively resolved.
+ *
  * @param value - CSS value
  * @param variablesMap - Map of variables for resolution
  * @param visited - Set of visited variables to prevent loops
  * @returns Resolved value
+ *
+ * @example
+ * // Primary variable exists
+ * resolveSimpleVarReference('var(--bg)', map) // → resolved value of --bg
+ *
+ * // Primary variable missing, fallback used
+ * resolveSimpleVarReference('var(--missing, #fff)', map) // → '#fff'
+ *
+ * // Nested fallback
+ * resolveSimpleVarReference('var(--missing, var(--other))', map) // → resolved value of --other
  */
 function resolveSimpleVarReference(
   value: string,
   variablesMap: Map<string, string>,
   visited: Set<string>,
 ): string {
-  const varRef = extractVarReference(value);
-  if (varRef === null || visited.has(varRef)) {
+  const parsed = findFirstVarFunction(value);
+  if (parsed === null) {
     return value;
   }
 
-  const referencedValue = variablesMap.get(varRef);
-  if (referencedValue === undefined) {
+  const { variableName, fallback, fullMatch } = parsed;
+
+  // Check for cycles
+  if (visited.has(variableName)) {
     return value;
   }
 
-  visited.add(varRef);
-  return resolveVarReferences(referencedValue, variablesMap, visited);
+  // Try to resolve the primary variable
+  const referencedValue = variablesMap.get(variableName);
+
+  if (referencedValue !== undefined) {
+    // Primary variable found - resolve it recursively
+    visited.add(variableName);
+    const resolved = resolveVarReferences(
+      referencedValue,
+      variablesMap,
+      new Set(visited),
+    );
+
+    // If the original value was just the var(), return the resolved value
+    // Otherwise, replace the var() in the original string
+    if (fullMatch === value) {
+      return resolved;
+    }
+    return value.replace(fullMatch, resolved);
+  }
+
+  // Primary variable not found - try fallback
+  if (fallback !== null) {
+    // Recursively resolve the fallback (it might contain var() too)
+    const resolvedFallback = resolveVarReferences(
+      fallback,
+      variablesMap,
+      new Set(visited),
+    );
+
+    // Replace the entire var() expression with the resolved fallback
+    if (fullMatch === value) {
+      return resolvedFallback;
+    }
+    return value.replace(fullMatch, resolvedFallback);
+  }
+
+  // No fallback and variable not found - return original
+  return value;
 }
 
 /**
