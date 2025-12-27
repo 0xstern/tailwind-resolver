@@ -16,6 +16,7 @@ import path from 'node:path';
 
 import { writeConflictReports } from '../core/reporting/conflicts';
 import { writeUnresolvedReports } from '../core/reporting/unresolved';
+import { smartWriteFileCompat } from '../core/utils/smart_writer';
 import { resolveTheme } from '../index';
 import { DEFAULT_INTERFACE_NAME, OUTPUT_FILES } from './constants';
 import {
@@ -49,8 +50,8 @@ async function prepareRuntimeFileWrites(
   const indexTs = `export type * from './types';\nexport * from './theme';\n`;
 
   return [
-    fs.writeFile(themePath, runtimeFile, 'utf-8'),
-    fs.writeFile(path.join(outputDir, OUTPUT_FILES.INDEX), indexTs, 'utf-8'),
+    smartWriteFileCompat(themePath, runtimeFile),
+    smartWriteFileCompat(path.join(outputDir, OUTPUT_FILES.INDEX), indexTs),
   ];
 }
 
@@ -205,7 +206,7 @@ async function prepareTypeAndRuntimeWrites(
   );
 
   const typesPath = path.join(outputDir, OUTPUT_FILES.TYPES);
-  const writePromises = [fs.writeFile(typesPath, typeDeclarations, 'utf-8')];
+  const writePromises = [smartWriteFileCompat(typesPath, typeDeclarations)];
 
   const runtimeWrites = await prepareRuntimeFileWrites(
     runtimeOptions,
