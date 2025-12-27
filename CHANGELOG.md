@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CSS var() Fallback Resolution**: Nested `var()` expressions with fallback values now resolve correctly ([#9](https://github.com/0xstern/tailwind-resolver/issues/9))
+  - `var(--missing, #fff)` now resolves to `#fff` when `--missing` is undefined
+  - `var(--missing, var(--other))` now recursively resolves the fallback
+  - Works in CSS functions: `calc(var(--x, 10px) + 5px)` resolves fallbacks properly
+  - Added `parseVarFunction()` parser for balanced parentheses handling
+- **Node.js Version Compatibility**: Relaxed engine requirement from `^21.2.0` to `>=21.0.0` ([#11](https://github.com/0xstern/tailwind-resolver/issues/11))
+  - Replaced `import.meta.dirname` with `fileURLToPath`/`dirname` for broader compatibility
 - **Smart File Generation**: Files are now only written when meaningful content changes, ignoring timestamp differences ([#10](https://github.com/0xstern/tailwind-resolver/issues/10))
   - Prevents unnecessary git noise when generated files have identical content but different timestamps
   - Applies to all generated files: `types.ts`, `theme.ts`, `index.ts`, and reports (`.md`, `.json`)
