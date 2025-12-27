@@ -3,8 +3,10 @@
  * Centralizes file I/O operations for consistency
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+
+import { smartWriteFileCompat } from './smart_writer';
 
 /**
  * Writes both markdown and JSON report files to a directory
@@ -46,10 +48,10 @@ export async function writeReportFiles(
   const markdownPath = join(outputDir, `${baseFilename}.md`);
   const jsonPath = join(outputDir, `${baseFilename}.json`);
 
-  // Write both files in parallel for performance
+  // Write both files in parallel for performance (only if content changed)
   await Promise.all([
-    writeFile(markdownPath, markdownContent, 'utf-8'),
-    writeFile(jsonPath, jsonContent, 'utf-8'),
+    smartWriteFileCompat(markdownPath, markdownContent),
+    smartWriteFileCompat(jsonPath, jsonContent),
   ]);
 
   return {

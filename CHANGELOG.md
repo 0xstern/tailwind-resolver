@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Smart File Generation**: Files are now only written when meaningful content changes, ignoring timestamp differences ([#10](https://github.com/0xstern/tailwind-resolver/issues/10))
+  - Prevents unnecessary git noise when generated files have identical content but different timestamps
+  - Applies to all generated files: `types.ts`, `theme.ts`, `index.ts`, and reports (`.md`, `.json`)
+  - New `smart_writer.ts` utility strips timestamp patterns before comparing content
+
 ## [0.3.4] - 2025-11-22
 
 ### Fixed
