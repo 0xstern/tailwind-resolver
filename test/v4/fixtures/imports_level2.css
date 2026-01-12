@@ -3,7 +3,7 @@
  * Tests recursive import resolution
  */
 
-@import './imports_level3.css';
+@import './imports_level3';
 
 @theme {
   /* Level 2 theme additions */

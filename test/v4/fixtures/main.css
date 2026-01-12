@@ -7,7 +7,7 @@
 @import './base_theme.css';
 @import './dark_mode.css';
 @import './custom_themes.css';
-@import './media_queries.css';
+@import './media_queries';
 @import './overrides.css';
 @import './imports_level1.css';
 

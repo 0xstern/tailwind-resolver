@@ -24,6 +24,11 @@ const URL_IMPORT_REGEX = /^url\(['"]?([^'"]+)['"]?\)/;
 const STRING_IMPORT_REGEX = /^['"]([^'"]+)['"]/;
 
 /**
+ * File extension for CSS `@import` statements, added if not provided.
+ */
+const IMPORT_FILE_EXTENSION = '.css'
+
+/**
  * Resolves all `@import` statements in a PostCSS AST recursively
  *
  * This function performs graceful error handling by design:
@@ -74,7 +79,8 @@ export async function resolveImports(
   // Process imports in parallel for better performance
   const results = await Promise.allSettled(
     importsToProcess.map(async ({ atRule, importPath }) => {
-      const resolvedPath = resolve(basePath, importPath);
+      const importPathWithExtension = importPath.endsWith(IMPORT_FILE_EXTENSION) ? importPath : `${importPath}${IMPORT_FILE_EXTENSION}`;
+      const resolvedPath = resolve(basePath, importPathWithExtension);
 
       // Skip if already processed (circular import prevention)
       if (processedFiles.has(resolvedPath)) {
