@@ -24,9 +24,38 @@ const URL_IMPORT_REGEX = /^url\(['"]?([^'"]+)['"]?\)/;
 const STRING_IMPORT_REGEX = /^['"]([^'"]+)['"]/;
 
 /**
- * File extension for CSS `@import` statements, added if not provided.
+ * Relative import path prefixes for local file resolution
  */
-const IMPORT_FILE_EXTENSION = '.css'
+const RELATIVE_IMPORT_PREFIXES = ['./', '../'] as const;
+
+/**
+ * File extension for CSS `@import` statements, added if not provided
+ */
+const CSS_FILE_EXTENSION = '.css'
+
+/**
+ * Checks if an import path is a relative file import (not a bare package specifier)
+ *
+ * @param importPath - The import path to check
+ * @returns True if the path is relative (starts with ./ or ../)
+ */
+function isRelativeImport(importPath: string): boolean {
+  return RELATIVE_IMPORT_PREFIXES.some((prefix) => importPath.startsWith(prefix));
+}
+
+/**
+ * Ensures a relative import path has the provided file extension
+ *
+ * @param importPath - The original import path
+ * @param extension - The file extension to add, if missing - defaults to .css
+ * @returns The path with extension if relative and missing, otherwise unchanged
+ */
+function normalizeImportPath(importPath: string, extension: string = CSS_FILE_EXTENSION): string {
+  if (isRelativeImport(importPath) && !importPath.endsWith(extension)) {
+    return `${importPath}${extension}`;
+  }
+  return importPath;
+}
 
 /**
  * Resolves all `@import` statements in a PostCSS AST recursively
@@ -79,7 +108,7 @@ export async function resolveImports(
   // Process imports in parallel for better performance
   const results = await Promise.allSettled(
     importsToProcess.map(async ({ atRule, importPath }) => {
-      const importPathWithExtension = importPath.endsWith(IMPORT_FILE_EXTENSION) ? importPath : `${importPath}${IMPORT_FILE_EXTENSION}`;
+      const importPathWithExtension = normalizeImportPath(importPath);
       const resolvedPath = resolve(basePath, importPathWithExtension);
 
       // Skip if already processed (circular import prevention)

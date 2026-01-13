@@ -3,7 +3,7 @@
  * Tests recursive @import resolution, circular import prevention, and error handling
  */
 
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -174,6 +174,31 @@ describe('resolveImports - Nested imports', () => {
     expect(files).toHaveLength(1);
   });
 });
+
+describe('resolveImports - bare packages', () => {
+  test('resolves bare package imports', async () => {
+    // Stub for a bare package import
+    await writeFile(join(tempDir, 'tw-animate-css'), '--color: red;');
+
+    const root = postcss.parse('@import "tw-animate-css";');
+    const imports = await resolveImports(root, tempDir, new Set());
+
+    expect(imports).toHaveLength(1);
+    expect(imports[0]).toEndWith('tw-animate-css')
+  })
+
+  test('resolves bare package import with leading @', async () => {
+    // Stub for a bare package import
+    await mkdir(join(tempDir, '@bprogress', 'core'), { recursive: true })
+    await writeFile(join(tempDir, '@bprogress', 'core', 'css'), '--color: red;');
+
+    const root = postcss.parse('@import "@bprogress/core/css";');
+    const imports = await resolveImports(root, tempDir, new Set());
+
+    expect(imports).toHaveLength(1);
+    expect(imports[0]).toEndWith('@bprogress/core/css')
+  })
+})
 
 describe('resolveImports - Circular import prevention', () => {
   test('prevents circular imports using processedFiles set', async () => {
