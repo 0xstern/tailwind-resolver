@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-03-17
+
 ### Fixed
 
 - **Multiline CSS Value Normalization**: Multi-line CSS declarations (e.g., shadows split across lines) are now collapsed to single-line values ([#16](https://github.com/0xstern/tailwind-resolver/issues/16))
