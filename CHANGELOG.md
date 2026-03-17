@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-03-17
+
 ### Fixed
 
 - **Vite Plugin ESM Build**: Fixed broken ESM bundle that caused `Export 't' is not defined in module` on all Vite builds ([#18](https://github.com/0xstern/tailwind-resolver/issues/18))
