@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Vite Plugin ESM Build**: Fixed broken ESM bundle that caused `Export 't' is not defined in module` on all Vite builds ([#18](https://github.com/0xstern/tailwind-resolver/issues/18))
+  - Root cause: Bun bundler regression with barrel file re-exports combined with external dependencies
+  - Build entry point changed from barrel file (`vite/index.ts`) to direct module (`vite/plugin.ts`)
+
 ## [0.3.7] - 2026-03-17
 
 ### Fixed

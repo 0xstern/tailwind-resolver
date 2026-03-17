@@ -44,7 +44,7 @@ const entryPoints = [
   // v4 Vite plugin
   {
     name: 'v4-vite-plugin',
-    path: 'src/v4/vite/index.ts',
+    path: 'src/v4/vite/plugin.ts',
     outputName: 'v4/vite-plugin',
   },
   {
