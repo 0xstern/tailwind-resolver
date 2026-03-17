@@ -448,6 +448,74 @@ describe('resolveImports - AST manipulation', () => {
   });
 });
 
+describe('resolveImports - Extension normalization', () => {
+  test('resolves relative import without .css extension', async () => {
+    await writeFile(join(tempDir, 'styles.css'), '--color: red;');
+
+    const root = postcss.parse('@import "./styles";');
+    const files = await resolveImports(root, tempDir);
+
+    expect(files).toHaveLength(1);
+    expect(files[0]).toBe(join(tempDir, 'styles.css'));
+  });
+
+  test('resolves parent-relative import without .css extension', async () => {
+    const subDir = join(tempDir, 'sub');
+    await Bun.write(join(subDir, 'placeholder'), '');
+    await writeFile(join(tempDir, 'base.css'), '--color: blue;');
+
+    const root = postcss.parse('@import "../base";');
+    const files = await resolveImports(root, subDir);
+
+    expect(files).toHaveLength(1);
+    expect(files[0]).toBe(join(tempDir, 'base.css'));
+  });
+
+  test('does not double-append .css to relative imports that already have it', async () => {
+    await writeFile(join(tempDir, 'styles.css'), '--color: red;');
+
+    const root = postcss.parse('@import "./styles.css";');
+    const files = await resolveImports(root, tempDir);
+
+    expect(files).toHaveLength(1);
+    expect(files[0]).toBe(join(tempDir, 'styles.css'));
+  });
+
+  test('does not append .css to bare package imports', async () => {
+    // Bare package imports like "tw-animate-css" should NOT get .css appended
+    // They resolve through node_modules, not the filesystem
+    const root = postcss.parse('@import "tw-animate-css";');
+    const files = await resolveImports(root, tempDir, new Set(), false);
+
+    // Should fail to resolve (no node_modules here) and be removed
+    expect(files).toHaveLength(0);
+  });
+
+  test('does not append .css to scoped bare package imports', async () => {
+    const root = postcss.parse('@import "@bprogress/core/css";');
+    const files = await resolveImports(root, tempDir, new Set(), false);
+
+    // Should fail to resolve and be removed, not get .css appended
+    expect(files).toHaveLength(0);
+  });
+
+  test('resolves nested relative imports without .css extension', async () => {
+    await writeFile(join(tempDir, 'level2.css'), '--color-b: blue;');
+    await writeFile(
+      join(tempDir, 'level1.css'),
+      '@import "./level2";\n--color-a: red;',
+    );
+
+    const root = postcss.parse('@import "./level1";');
+    const files = await resolveImports(root, tempDir);
+    const EXPECTED_FILE_COUNT = 2;
+
+    expect(files).toHaveLength(EXPECTED_FILE_COUNT);
+    expect(files).toContain(join(tempDir, 'level1.css'));
+    expect(files).toContain(join(tempDir, 'level2.css'));
+  });
+});
+
 describe('resolveImports - Edge cases', () => {
   test('handles imports with whitespace in path', async () => {
     const fileName = 'file with spaces.css';

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **CSS Import Extension Resolution**: Relative `@import` statements without a `.css` extension now resolve correctly ([#14](https://github.com/0xstern/tailwind-resolver/issues/14))
+  - `@import "./styles"` is normalized to `@import "./styles.css"` before resolution
+  - Only applies to relative imports (`./` or `../`) — bare package imports (e.g. `tw-animate-css`, `@bprogress/core/css`) are left unchanged
+
 ## [0.3.5] - 2025-12-27
 
 ### Fixed

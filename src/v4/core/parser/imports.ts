@@ -6,7 +6,7 @@
 import type { AtRule, Root } from 'postcss';
 
 import { readFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { dirname, extname, resolve } from 'node:path';
 
 import postcss from 'postcss';
 
@@ -22,6 +22,47 @@ const MAX_IMPORT_DEPTH = 50;
  */
 const URL_IMPORT_REGEX = /^url\(['"]?([^'"]+)['"]?\)/;
 const STRING_IMPORT_REGEX = /^['"]([^'"]+)['"]/;
+
+/**
+ * Relative import path prefixes for local file resolution
+ */
+const RELATIVE_IMPORT_PREFIXES = ['./', '../'] as const;
+
+/**
+ * File extension for CSS `@import` statements, added if not provided
+ */
+const CSS_FILE_EXTENSION = '.css';
+
+/**
+ * Checks if an import path is a relative file import (not a bare package specifier)
+ *
+ * @param importPath - The import path to check
+ * @returns True if the path is relative (starts with ./ or ../)
+ */
+function isRelativeImport(importPath: string): boolean {
+  return RELATIVE_IMPORT_PREFIXES.some((prefix) =>
+    importPath.startsWith(prefix),
+  );
+}
+
+/**
+ * Ensures a relative import path has the .css extension
+ *
+ * Bare package imports (e.g. `tw-animate-css`, `@bprogress/core/css`)
+ * are left unchanged since they resolve through node_modules, not the filesystem.
+ *
+ * @param importPath - The original import path
+ * @returns The path with .css extension if relative and missing, otherwise unchanged
+ */
+function normalizeImportPath(importPath: string): string {
+  if (
+    isRelativeImport(importPath) &&
+    extname(importPath) !== CSS_FILE_EXTENSION
+  ) {
+    return `${importPath}${CSS_FILE_EXTENSION}`;
+  }
+  return importPath;
+}
 
 /**
  * Resolves all `@import` statements in a PostCSS AST recursively
@@ -67,7 +108,10 @@ export async function resolveImports(
 
     if (importPath !== null && !importPath.startsWith('tailwindcss')) {
       // Skip Tailwind's own imports
-      importsToProcess.push({ atRule, importPath });
+      importsToProcess.push({
+        atRule,
+        importPath: normalizeImportPath(importPath),
+      });
     }
   });
 
