@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-03-17
+
 ### Fixed
 
 - **CSS Import Extension Resolution**: Relative `@import` statements without a `.css` extension now resolve correctly ([#14](https://github.com/0xstern/tailwind-resolver/issues/14))
