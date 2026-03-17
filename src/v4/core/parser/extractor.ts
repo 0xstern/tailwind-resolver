@@ -46,6 +46,20 @@ const FONT_SIZE_LINE_HEIGHT_REGEX = /^(.+)--line-height$/;
 const KEBAB_TO_CAMEL_REGEX = /-([a-z0-9])/g;
 
 /**
+ * Normalizes a CSS value by collapsing whitespace sequences (including newlines)
+ * into single spaces.
+ *
+ * Multi-line CSS declarations are semantically equivalent to single-line ones,
+ * so newlines and excess whitespace should be collapsed for clean output.
+ *
+ * @param value - The raw CSS value from PostCSS
+ * @returns Normalized value with collapsed whitespace
+ */
+function normalizeCSSValue(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+/**
  * Checks if a CSS variable is self-referential (e.g., --font-sans: var(--font-sans))
  *
  * Self-referential variables create circular dependencies and should be ignored
@@ -251,7 +265,7 @@ function processNestedVariants(
             if (!isSelfReferential(decl.prop, decl.value)) {
               variables.push({
                 name: decl.prop,
-                value: decl.value,
+                value: normalizeCSSValue(decl.value),
                 source: 'variant',
                 selector: compoundSelector,
                 variantName: compoundVariantName,
@@ -309,7 +323,7 @@ export function extractVariables(root: Root): {
               // The 'initial' values will be used to filter defaults, but we need to track them
               variables.push({
                 name: decl.prop,
-                value: decl.value,
+                value: normalizeCSSValue(decl.value),
                 source: 'theme',
               });
             }
@@ -332,7 +346,7 @@ export function extractVariables(root: Root): {
               if (!isSelfReferential(decl.prop, decl.value)) {
                 variables.push({
                   name: decl.prop,
-                  value: decl.value,
+                  value: normalizeCSSValue(decl.value),
                   source: 'variant',
                   selector: `@media ${atRule.params}`,
                   variantName,
@@ -357,7 +371,7 @@ export function extractVariables(root: Root): {
             if (!isSelfReferential(decl.prop, decl.value)) {
               variables.push({
                 name: decl.prop,
-                value: decl.value,
+                value: normalizeCSSValue(decl.value),
                 source: 'root',
               });
             }
@@ -377,7 +391,7 @@ export function extractVariables(root: Root): {
                 if (!isSelfReferential(decl.prop, decl.value)) {
                   variables.push({
                     name: decl.prop,
-                    value: decl.value,
+                    value: normalizeCSSValue(decl.value),
                     source: 'variant',
                     selector: rule.selector,
                     variantName,
@@ -401,7 +415,7 @@ export function extractVariables(root: Root): {
                 if (!isSelfReferential(decl.prop, decl.value)) {
                   variables.push({
                     name: decl.prop,
-                    value: decl.value,
+                    value: normalizeCSSValue(decl.value),
                     source: 'variant',
                     selector: `${rule.selector} @media ${mediaRule.params}`,
                     variantName,

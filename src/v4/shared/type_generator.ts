@@ -9,6 +9,8 @@ import type {
   Theme,
 } from '../types';
 
+import { isRecord } from '../core/utils/type_guards';
+
 const JSON_INDENT_SPACES = 2;
 
 /**
@@ -69,81 +71,79 @@ const THEME_PROPERTY_CONFIGS: Array<PropertyConfig> = [
   },
   {
     key: 'fonts',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
   {
     key: 'fontWeight',
-    generator: (v) =>
-      generateMixedRecordType(v as Record<string, string | number>),
+    generator: (v) => generateMixedRecordType(v),
   },
   {
     key: 'spacing',
-    generator: (v) => generateSpacingType(v as Record<string, string>),
+    generator: (v) => generateSpacingType(v),
   },
   {
     key: 'breakpoints',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
   {
     key: 'containers',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
   {
     key: 'radius',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
   {
     key: 'shadows',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
   {
     key: 'insetShadows',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
   {
     key: 'dropShadows',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
   {
     key: 'textShadows',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
   {
     key: 'blur',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
   {
     key: 'perspective',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
   {
     key: 'aspect',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
   {
     key: 'ease',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
   {
     key: 'animations',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
   {
     key: 'tracking',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
   {
     key: 'leading',
-    generator: (v) =>
-      generateMixedRecordType(v as Record<string, string | number>),
+    generator: (v) => generateMixedRecordType(v),
   },
   {
     key: 'defaults',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
   {
     key: 'keyframes',
-    generator: (v) => generateRecordType(v as Record<string, string>),
+    generator: (v) => generateRecordType(v),
   },
 ] as const;
 
@@ -297,7 +297,33 @@ function generateTypeDeclarationsInternal(
   return typeDefinitions.join('\n');
 }
 
-function generateMixedRecordType(obj: Record<string, string | number>): string {
+function generateMixedRecordValue(value: unknown): string {
+  if (typeof value === 'number') {
+    return `${value}`;
+  }
+  if (typeof value === 'string') {
+    return `'${escapeStringLiteral(value)}'`;
+  }
+  if (isRecord(value)) {
+    const entries = Object.entries(value);
+    if (entries.length === 0) {
+      return '{}';
+    }
+
+    const props = entries
+      .map(([key, nested]) => {
+        const safeKey = isValidIdentifier(key) ? key : `'${key}'`;
+        return `${safeKey}: ${generateMixedRecordValue(nested)}`;
+      })
+      .join('; ');
+
+    return `{ ${props} }`;
+  }
+
+  return `'${String(value)}'`;
+}
+
+function generateMixedRecordType(obj: Record<string, unknown>): string {
   const entries = Object.entries(obj);
 
   if (entries.length === 0) {
@@ -307,10 +333,7 @@ function generateMixedRecordType(obj: Record<string, string | number>): string {
   const props = entries
     .map(([key, value]) => {
       const safeKey = isValidIdentifier(key) ? key : `'${key}'`;
-      if (typeof value === 'number') {
-        return `${safeKey}: ${value}`;
-      }
-      return `${safeKey}: '${value}'`;
+      return `${safeKey}: ${generateMixedRecordValue(value)}`;
     })
     .join(';\n  ');
 
@@ -324,28 +347,28 @@ function generateMixedRecordType(obj: Record<string, string | number>): string {
  * @param value - Color value (string or nested object)
  * @returns TypeScript type string
  */
-function generateColorValue(value: string | Record<string, unknown>): string {
+function generateColorValue(value: unknown): string {
   if (typeof value === 'string') {
     return `'${escapeStringLiteral(value)}'`;
   }
 
-  // Handle nested object recursively
-  const entries = Object.entries(value);
-  if (entries.length === 0) {
-    return '{}';
+  if (isRecord(value)) {
+    const entries = Object.entries(value);
+    if (entries.length === 0) {
+      return '{}';
+    }
+
+    const props = entries
+      .map(([key, nestedValue]) => {
+        const safeKey = isValidIdentifier(key) ? key : `'${key}'`;
+        return `${safeKey}: ${generateColorValue(nestedValue)}`;
+      })
+      .join('; ');
+
+    return `{ ${props} }`;
   }
 
-  const props = entries
-    .map(([key, nestedValue]) => {
-      const safeKey = isValidIdentifier(key) ? key : `'${key}'`;
-      const typeValue = generateColorValue(
-        nestedValue as string | Record<string, unknown>,
-      );
-      return `${safeKey}: ${typeValue}`;
-    })
-    .join('; ');
-
-  return `{ ${props} }`;
+  return `'${String(value)}'`;
 }
 
 function generateColorTypes(colors: Theme['colors']): string {
@@ -358,10 +381,7 @@ function generateColorTypes(colors: Theme['colors']): string {
   const colorProps = entries
     .map(([key, value]) => {
       const safeKey = isValidIdentifier(key) ? key : `'${key}'`;
-      const typeValue = generateColorValue(
-        value as string | Record<string, unknown>,
-      );
-      return `${safeKey}: ${typeValue}`;
+      return `${safeKey}: ${generateColorValue(value)}`;
     })
     .join(';\n  ');
 
@@ -390,7 +410,31 @@ function generateFontSizeTypes(fontSize: Theme['fontSize']): string {
   return `{\n  ${fontSizeProps}\n}`;
 }
 
-function generateRecordType(obj: Record<string, string>): string {
+function generateRecordValue(value: unknown): string {
+  if (typeof value === 'string') {
+    return `'${escapeStringLiteral(value)}'`;
+  }
+
+  if (isRecord(value)) {
+    const entries = Object.entries(value);
+    if (entries.length === 0) {
+      return '{}';
+    }
+
+    const props = entries
+      .map(([key, nested]) => {
+        const safeKey = isValidIdentifier(key) ? key : `'${key}'`;
+        return `${safeKey}: ${generateRecordValue(nested)}`;
+      })
+      .join('; ');
+
+    return `{ ${props} }`;
+  }
+
+  return `'${String(value)}'`;
+}
+
+function generateRecordType(obj: Record<string, unknown>): string {
   const entries = Object.entries(obj);
 
   if (entries.length === 0) {
@@ -400,7 +444,7 @@ function generateRecordType(obj: Record<string, string>): string {
   const props = entries
     .map(([key, value]) => {
       const safeKey = isValidIdentifier(key) ? key : `'${key}'`;
-      return `${safeKey}: '${escapeStringLiteral(value)}'`;
+      return `${safeKey}: ${generateRecordValue(value)}`;
     })
     .join(';\n  ');
 
@@ -414,7 +458,7 @@ function generateRecordType(obj: Record<string, string>): string {
  * @param obj - The spacing object with keys like base, xs, sm, etc.
  * @returns Type string for spacing
  */
-function generateSpacingType(obj: Record<string, string>): string {
+function generateSpacingType(obj: Record<string, unknown>): string {
   const entries = Object.entries(obj);
 
   if (entries.length === 0) {
@@ -424,7 +468,7 @@ function generateSpacingType(obj: Record<string, string>): string {
   const props = entries
     .map(([key, value]) => {
       const safeKey = isValidIdentifier(key) ? key : `'${key}'`;
-      return `${safeKey}: '${escapeStringLiteral(value)}'`;
+      return `${safeKey}: ${generateRecordValue(value)}`;
     })
     .join(';\n  ');
 
