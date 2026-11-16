@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Root ESM Entry**: Fixed `import { resolveTheme } from 'tailwind-resolver'` failing at load time with `Export 'u1' is not defined in module` ([#19](https://github.com/0xstern/tailwind-resolver/issues/19))
+  - Root cause: Bun's barrel import optimization (Bun 1.3.10–1.4.0), which `"sideEffects": false` enables automatically, dropped re-exported bindings from entry points that only re-export while still emitting their `export` clause ([oven-sh/bun#40578](https://github.com/oven-sh/bun/issues/40578)); the same bug caused [#18](https://github.com/0xstern/tailwind-resolver/issues/18)
+  - Removed `"sideEffects": false` from `package.json`, which opts the build out of the optimization; bundle contents are unchanged
+  - Vite plugin build entry restored to its public barrel (`vite/index.ts`), since the #18 workaround is no longer needed
+  - The build now loads every library bundle (ESM and CJS) in Node and fails if its exports differ from its source module
+- **CommonJS Entry Points**: Fixed `require('tailwind-resolver')` and every other `require` entry (`/v4`, `/vite`, `/v4/vite`, spacing helper) throwing `ReferenceError: module is not defined in ES module scope`
+  - Root cause: CommonJS bundles used the `.js` extension, which Node loads as ESM because `package.json` declares `"type": "module"`
+  - CommonJS bundles are now emitted as `.cjs`, and `main` and every `require` export condition point to them
+
 ## [0.3.8] - 2026-03-17
 
 ### Fixed
