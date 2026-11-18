@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.9] - 2026-11-18
+
 ### Fixed
 
 - **Root ESM Entry**: Fixed `import { resolveTheme } from 'tailwind-resolver'` failing at load time with `Export 'u1' is not defined in module` ([#19](https://github.com/0xstern/tailwind-resolver/issues/19))
