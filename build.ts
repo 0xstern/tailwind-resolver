@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 import { color } from 'bun';
@@ -44,7 +45,7 @@ const entryPoints = [
   // v4 Vite plugin
   {
     name: 'v4-vite-plugin',
-    path: 'src/v4/vite/plugin.ts',
+    path: 'src/v4/vite/index.ts',
     outputName: 'v4/vite-plugin',
   },
   {
@@ -58,6 +59,39 @@ const entryPoints = [
     outputName: 'v4/shared/spacing_helper',
   },
 ];
+
+/**
+ * Runtime exports of a module: export name mapped to `typeof` its value
+ */
+type ExportShape = Record<string, string>;
+
+/**
+ * Node program that loads each bundle path it receives (`.mjs` via import,
+ * anything else via require) and prints a JSON report mapping every path to
+ * its export shape, or to the error raised while loading it
+ */
+const DESCRIBE_BUNDLE_EXPORTS = `
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+
+const require = createRequire(import.meta.url);
+const report = {};
+for (const file of process.argv.slice(2)) {
+  try {
+    const moduleExports = file.endsWith('.mjs')
+      ? await import(pathToFileURL(file).href)
+      : require(file);
+    report[file] = Object.fromEntries(
+      Object.keys(moduleExports)
+        .sort()
+        .map((name) => [name, typeof moduleExports[name]]),
+    );
+  } catch (error) {
+    report[file] = String(error);
+  }
+}
+process.stdout.write(JSON.stringify(report));
+`;
 
 async function cleanOutputDirectory(): Promise<void> {
   console.log(`\nCleaning output directory...${RESET}`);
@@ -106,7 +140,22 @@ async function ensureOutputDir(entryOutputName: string): Promise<void> {
 }
 
 /**
+ * Identifies the CLI entry point, which runs on load and exposes no exports
+ *
+ * @param entry - Entry point configuration
+ * @param entry.outputName - Output file name
+ * @returns True when the entry point builds the CLI
+ */
+function isCliEntry(entry: { outputName: string }): boolean {
+  return entry.outputName.includes('cli');
+}
+
+/**
  * Builds a single module in specified format
+ *
+ * Bundles always carry an explicit module extension: package.json declares
+ * `"type": "module"`, so Node would load a CommonJS bundle named `.js` as ESM
+ * and fail with `module is not defined in ES module scope`.
  *
  * @param entry - Entry point configuration
  * @param entry.name - Entry point name
@@ -118,8 +167,7 @@ async function buildModule(
   entry: { name: string; path: string; outputName: string },
   format: 'esm' | 'cjs',
 ): Promise<void> {
-  const isCLI = entry.outputName.includes('cli');
-  const extension = format === 'esm' ? '.mjs' : isCLI ? '.cjs' : '.js';
+  const extension = format === 'esm' ? '.mjs' : '.cjs';
 
   // Create nested directory if needed
   await ensureOutputDir(entry.outputName);
@@ -132,7 +180,7 @@ async function buildModule(
     sourcemap,
     minify,
     external,
-    naming: `${entry.outputName}.js`,
+    naming: `${entry.outputName}${extension}`,
   });
 
   if (!result.success) {
@@ -143,27 +191,6 @@ async function buildModule(
       console.error(`    ${COLOR_ERROR}${log.message}${RESET}`);
     }
     throw new Error(`Build failed for ${entry.outputName}`);
-  }
-
-  // Rename .js to .mjs for ESM builds or .cjs for CLI
-  if (format === 'esm') {
-    await fs.rename(
-      path.join(outDir, `${entry.outputName}.js`),
-      path.join(outDir, `${entry.outputName}.mjs`),
-    );
-    await fs.rename(
-      path.join(outDir, `${entry.outputName}.js.map`),
-      path.join(outDir, `${entry.outputName}.mjs.map`),
-    );
-  } else if (isCLI) {
-    await fs.rename(
-      path.join(outDir, `${entry.outputName}.js`),
-      path.join(outDir, `${entry.outputName}.cjs`),
-    );
-    await fs.rename(
-      path.join(outDir, `${entry.outputName}.js.map`),
-      path.join(outDir, `${entry.outputName}.cjs.map`),
-    );
   }
 
   const output = result.outputs[0];
@@ -196,11 +223,170 @@ async function buildAllModules(): Promise<void> {
 
   // Build all CJS modules in parallel
   const cjsPromises = entryPoints.map(async (entry) => {
-    console.log(`  Building ${entry.outputName}.js...${RESET}`);
+    console.log(`  Building ${entry.outputName}.cjs...${RESET}`);
     return buildModule(entry, 'cjs');
   });
 
   await Promise.all(cjsPromises);
+}
+
+/**
+ * Checks whether a value is a non-null object that can be indexed by key
+ *
+ * @param value - Value to check
+ * @returns True when the value is a non-array object
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Describes a module's runtime exports, sorted by name so that shapes built
+ * here and by DESCRIBE_BUNDLE_EXPORTS serialize identically
+ *
+ * @param moduleExports - Module namespace object
+ * @returns Export shape of the module
+ */
+function describeExports(moduleExports: Record<string, unknown>): ExportShape {
+  const shape: ExportShape = {};
+  for (const name of Object.keys(moduleExports).sort()) {
+    shape[name] = typeof moduleExports[name];
+  }
+  return shape;
+}
+
+/**
+ * Pairs every library bundle (ESM and CJS) with the export shape of its
+ * source module. The CLI is skipped: it exposes nothing and runs on load.
+ *
+ * @returns Absolute bundle paths with their expected export shapes
+ */
+async function collectExpectedExports(): Promise<
+  Array<{ file: string; expected: ExportShape }>
+> {
+  const libraryEntries = entryPoints.filter((entry) => !isCliEntry(entry));
+  const expectations = await Promise.all(
+    libraryEntries.map(async (entry) => {
+      const sourceModule = (await import(path.resolve(entry.path))) as Record<
+        string,
+        unknown
+      >;
+      const expected = describeExports(sourceModule);
+      return ['.mjs', '.cjs'].map((extension) => ({
+        file: path.resolve(outDir, `${entry.outputName}${extension}`),
+        expected,
+      }));
+    }),
+  );
+  return expectations.flat();
+}
+
+/**
+ * Loads bundles in a Node subprocess, the runtime consumers use, and returns
+ * the report printed by DESCRIBE_BUNDLE_EXPORTS
+ *
+ * @param files - Absolute bundle paths
+ * @returns Report mapping each path to its export shape or load error
+ */
+async function describeBundlesInNode(
+  files: Array<string>,
+): Promise<Record<string, unknown>> {
+  // Run from a real module file, not `node --eval`: eval exposes Node's
+  // built-in modules (`module`, `fs`, `os`, ...) as globals, which can hide
+  // exactly the undeclared-binding errors this check exists to catch
+  const scriptDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'tailwind-resolver-'),
+  );
+  const scriptPath = path.join(scriptDir, 'describe_bundle_exports.mjs');
+
+  let stdout: string;
+  let stderr: string;
+  let exitCode: number;
+  try {
+    await fs.writeFile(scriptPath, DESCRIBE_BUNDLE_EXPORTS, 'utf-8');
+    const proc = Bun.spawn(['node', scriptPath, ...files], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+  } finally {
+    await fs.rm(scriptDir, { recursive: true, force: true });
+  }
+
+  if (exitCode !== 0) {
+    throw new Error(`Node exited with code ${exitCode}: ${stderr}`);
+  }
+
+  const report: unknown = JSON.parse(stdout);
+  if (!isRecord(report)) {
+    throw new Error(`Unexpected export report from Node: ${stdout}`);
+  }
+  return report;
+}
+
+/**
+ * Compares a bundle's reported exports with those of its source module
+ *
+ * @param expected - Export shape of the source module
+ * @param actual - Report entry for the bundle (export shape or load error)
+ * @returns Description of the mismatch, or null when the bundle matches
+ */
+function findExportMismatch(
+  expected: ExportShape,
+  actual: unknown,
+): string | null {
+  if (typeof actual === 'string') {
+    return `failed to load: ${actual}`;
+  }
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    return `exports ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`;
+  }
+  return null;
+}
+
+/**
+ * Verifies that every library bundle loads in Node and exposes the same
+ * runtime exports as its source module.
+ *
+ * A bundler bug can emit an export clause that references a binding it
+ * dropped. The build still succeeds and the bundle fails only when a consumer
+ * loads it (#18, #19), so the build has to load the bundles to catch it.
+ */
+async function verifyBundleExports(): Promise<void> {
+  console.log(
+    `\n${BOLD}Verifying bundle exports in Node...${RESET_BOLD}${RESET}`,
+  );
+
+  const expectations = await collectExpectedExports();
+  const report = await describeBundlesInNode(
+    expectations.map(({ file }) => file),
+  );
+
+  const failures: Array<string> = [];
+  for (const { file, expected } of expectations) {
+    const bundleName = path.relative(outDir, file);
+    const mismatch = findExportMismatch(expected, report[file]);
+
+    if (mismatch === null) {
+      const exportCount = Object.keys(expected).length;
+      console.log(
+        `    ${CHECK_MARK} ${bundleName} (${exportCount} exports)${RESET}`,
+      );
+    } else {
+      failures.push(bundleName);
+      console.error(
+        `  ${CROSS_MARK} ${COLOR_ERROR}${bundleName} ${mismatch}${RESET}`,
+      );
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new Error(`Export verification failed for ${failures.join(', ')}`);
+  }
 }
 
 async function buildTypes(): Promise<void> {
@@ -297,6 +483,7 @@ ${content}`;
 async function executeBuildProcess(): Promise<void> {
   await cleanOutputDirectory();
   await buildAllModules();
+  await verifyBundleExports();
   await buildTypes();
   await addShebangToCLI();
 

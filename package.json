@@ -27,7 +27,7 @@
     "url": "https://github.com/0xstern/tailwind-resolver/issues"
   },
   "homepage": "https://github.com/0xstern/tailwind-resolver#readme",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "bin": {
@@ -37,36 +37,35 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "require": "./dist/index.cjs"
     },
     "./v4": {
       "types": "./dist/v4/index.d.ts",
       "import": "./dist/v4/index.mjs",
-      "require": "./dist/v4/index.js"
+      "require": "./dist/v4/index.cjs"
     },
     "./v4/vite": {
       "types": "./dist/v4/vite-plugin.d.ts",
       "import": "./dist/v4/vite-plugin.mjs",
-      "require": "./dist/v4/vite-plugin.js"
+      "require": "./dist/v4/vite-plugin.cjs"
     },
     "./vite": {
       "types": "./dist/v4/vite-plugin.d.ts",
       "import": "./dist/v4/vite-plugin.mjs",
-      "require": "./dist/v4/vite-plugin.js"
+      "require": "./dist/v4/vite-plugin.cjs"
     },
     "./v4/shared/spacing-helper": {
       "types": "./dist/v4/shared/spacing_helper.d.ts",
       "import": "./dist/v4/shared/spacing_helper.mjs",
-      "require": "./dist/v4/shared/spacing_helper.js"
+      "require": "./dist/v4/shared/spacing_helper.cjs"
     },
     "./v4/shared/spacing_helper": {
       "types": "./dist/v4/shared/spacing_helper.d.ts",
       "import": "./dist/v4/shared/spacing_helper.mjs",
-      "require": "./dist/v4/shared/spacing_helper.js"
+      "require": "./dist/v4/shared/spacing_helper.cjs"
     }
   },
   "files": [
-    "dist/**/*.js",
     "dist/**/*.mjs",
     "dist/**/*.d.ts",
     "dist/**/*.cjs",
@@ -77,7 +76,6 @@
     "src/v4/vite/README.md"
   ],
   "type": "module",
-  "sideEffects": false,
   "devDependencies": {
     "@eslint/js": "^9.36.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.5.1",

@@ -70,7 +70,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| File | Size |" >> $GITHUB_STEP_SUMMARY
           echo "|------|------|" >> $GITHUB_STEP_SUMMARY
-          find dist -type f \( -name "*.js" -o -name "*.mjs" \) -not -name "*.map" | while read file; do
+          find dist -type f \( -name "*.cjs" -o -name "*.mjs" \) -not -name "*.map" | while read file; do
             size=$(du -h "$file" | cut -f1)
             echo "| \`${file#dist/}\` | $size |" >> $GITHUB_STEP_SUMMARY
           done
